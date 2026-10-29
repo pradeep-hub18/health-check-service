@@ -1,0 +1,51 @@
+# The MVP scheduler coordinates only within a single process.
+replicaCount: 1
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: health-check-service
+  tag: local
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+  # Only used for type NodePort. Null lets Kubernetes allocate a port.
+  nodePort: null
+
+scheduler:
+  maxWorkers: 10
+  checkTimeoutSeconds: 5
+  # Only enable for trusted private endpoints; restrict access and egress first.
+  allowPrivateEndpoints: false
+
+terminationGracePeriodSeconds: 60
+
+database:
+  name: healthcheck
+  user: healthapp
+  # Prefer an externally managed Secret with POSTGRES_DB, POSTGRES_USER,
+  # POSTGRES_PASSWORD keys. No database credentials are committed here.
+  existingSecret: ""
+  password: ""
+  port: 5432
+  image: postgres:16
+  storage: 1Gi
+  # Null uses the cluster default; "" explicitly requests no storage class.
+  storageClass: null
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi

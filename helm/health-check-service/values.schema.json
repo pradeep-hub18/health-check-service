@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["replicaCount", "image", "database", "scheduler", "service"],
+  "properties": {
+    "replicaCount": {"type": "integer", "const": 1},
+    "terminationGracePeriodSeconds": {"type": "integer", "minimum": 30},
+    "image": {"type": "object", "properties": {
+      "repository": {"type": "string", "minLength": 1},
+      "tag": {"type": "string", "minLength": 1},
+      "pullPolicy": {"enum": ["Always", "IfNotPresent", "Never"]}
+    }},
+    "service": {"type": "object", "properties": {
+      "type": {"enum": ["ClusterIP", "NodePort", "LoadBalancer"]},
+      "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+      "nodePort": {"type": ["integer", "null"], "minimum": 30000, "maximum": 32767}
+    }},
+    "database": {"type": "object", "properties": {
+      "name": {"type": "string", "minLength": 1},
+      "user": {"type": "string", "minLength": 1},
+      "existingSecret": {"type": "string"},
+      "password": {"type": "string"},
+      "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+      "image": {"type": "string", "minLength": 1},
+      "storage": {"type": "string", "minLength": 1},
+      "storageClass": {"type": ["string", "null"]}
+    }},
+    "scheduler": {"type": "object", "properties": {
+      "maxWorkers": {"type": "integer", "minimum": 1, "maximum": 1000},
+      "checkTimeoutSeconds": {"type": "number", "exclusiveMinimum": 0, "maximum": 30},
+      "allowPrivateEndpoints": {"type": "boolean"}
+    }}
+  }
+}
