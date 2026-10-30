@@ -30,6 +30,21 @@ This is an MVP for a trusted local or cluster network. It has no API authenticat
 
 All commands below run from the repository root and use `python3`. Do not commit passwords, database dumps, generated Secret YAML, or local environment files.
 
+## Automated local build and validation
+
+Run one command to build the image, validate the project, create a local Minikube deployment, and verify the live service:
+
+```sh
+bash scripts/validate-local.sh
+```
+
+The script runs the Python test suite and dependency audit, builds the application image, validates the Helm chart, creates a dedicated Minikube profile and Kubernetes Secret, and installs the application with PostgreSQL. It checks readiness and liveness, registers `https://example.com`, waits for a scheduled result, checks history, transitions, and Prometheus metrics, then uninstalls and reinstalls the Helm release to confirm the PostgreSQL PVC and successful check history persist.
+
+Docker Engine must already be running and accessible. The host also needs Bash, `curl`, `python3`, and internet access for downloads and the live endpoint check. The script supports macOS, Linux on x86_64 or ARM64, and Linux under WSL2; it installs missing `kubectl`, Helm, and Minikube using Homebrew on macOS or `~/.local/bin` on Linux/WSL2. Native PowerShell and Git Bash are not supported.
+
+After a successful run, the reviewer Minikube profile, namespace, pods, PostgreSQL PVC, Secret, endpoint, and history stay available for inspection. The script prints commands to inspect them. On failure it prints available diagnostics and removes resources it created. Pass `--cleanup` when you want the script to tear down the reviewer environment after validation. A normal successful run keeps the reviewer resources and prints Minikube profile and state directory commands for removing them later.
+
+This script automates the Docker, test database, Minikube, and Helm setup described in the manual sections below. Use those steps when you want to configure each component separately.
 ## Local development
 
 Create the environment and install runtime and test dependencies:
@@ -109,6 +124,8 @@ docker run --rm --name healthcheck-app --network healthcheck-net \
 The application image runs as a non-root user. Stop it from another terminal with `docker stop --time 60 healthcheck-app`, allowing the application's drain period to finish. Keep credentials outside the image and build context.
 
 ## Minikube and Helm
+
+For the automated image build, Helm validation, Minikube deployment, and live smoke test, use [the validation script](scripts/validate-local.sh). The manual steps below are for configuring the cluster yourself.
 
 These commands install a **new release**. If an older version of this chart is already installed, read [the migration procedure](docs/runbook.md#upgrading-an-original-chart-installation) first: resource names/selectors have changed, and the old PostgreSQL PVC must be preserved.
 
@@ -256,6 +273,8 @@ curl -sS -X DELETE "$BASE_URL/endpoints/123"
 Invalid JSON, URLs, intervals, status codes, timestamps, or reversed time ranges return 400; bodies over 16 KiB return 413. Database failures return 503 on data APIs; metrics remain available with `health_check_database_up=0` and may retain stale endpoint counts. A healthy endpoint is one whose observed status equals its configured status; for example, a 301 is healthy only when 301 is expected. Redirect targets are never followed. No manual-check HTTP route exists.
 
 ## Tests and validation
+
+The [validation script](scripts/validate-local.sh) runs the suite, dependency audit, Docker build, Helm checks, and retained Minikube smoke test in one command.
 
 Unit tests mock HTTP/database boundaries and require neither Internet access nor a running database:
 
