@@ -209,3 +209,27 @@ kubectl --context minikube delete namespace temporal-healthcheck-final-validatio
 ## Cleanup and delivery
 
 Temporary Docker test/app/target/database containers, the validation network, both temporary Kubernetes namespaces and their Secrets/PVCs, and private generated credential files were removed. The completed Docker image remains available locally. Existing Docker/database workloads and existing Minikube workloads were preserved. The validated files were applied to the project repository while preserving its existing virtual environment. This report accompanies the source as submission evidence.
+
+
+## 30 October 2026 follow-up validation and publication
+
+The public repository is https://github.com/pradeep-hub18/health-check-service. The README update adding representative JSON responses and the PostgreSQL rationale was published in commit 8dc867875447b8c7aee6b56286750008c1d532e4. This section records additional checks run after that documentation update.
+
+| Check | Actual result |
+| --- | --- |
+| Rebuilt Docker image from the submission package | Passed on Linux ARM64 as health-check-service-checkpoint:local |
+| Complete Python 3.12 suite using a new disposable PostgreSQL database | **147 passed, 0 skipped** in 3.66 seconds |
+| python3 -m pip check | Passed; no broken requirements |
+| pip-audit against the rebuilt image | **17 packages; no known vulnerabilities reported** |
+| Strict Helm lint, external and generated Secret variants | Passed |
+| Helm template, standard and alternate NodePort/custom-port/storage-class configurations | Passed |
+| Negative Helm configuration checks for missing credentials, two replicas, and zero workers | All rejected as expected |
+| Strict Kubernetes server-side dry-run in a unique Minikube namespace | Passed |
+| Minikube install and end-to-end API smoke | App and PostgreSQL ready with zero restarts; liveness/readiness 200; registration 201; scheduled history, healthy transition, and metrics verified; deletion 200 and deleted history 404 |
+| PostgreSQL persistence | PVC Bound and still Bound after Helm uninstall |
+| Docker hardened-runtime smoke | UID 10001, read-only root filesystem, readiness, registration, scheduled result, metrics, and SIGTERM exit 0 verified |
+| SIGTERM during an active HTTP check | Exit 0 after 3.14 seconds; the active result was committed exactly once |
+| Documentation and source hygiene | 25 shell examples passed sh -n; local Markdown links resolve; no secret-pattern matches |
+| Cleanup | Temporary database, networks, Secrets, namespace/PVC, port-forward, and smoke containers removed; existing default-namespace Minikube workloads and health-check-postgres container preserved |
+
+The recheck did not load-test 50,000 endpoints or exercise cross-region failover; these remain design proposals rather than MVP claims. The optional outbound requests-per-second or per-host rate limiter is not implemented. Automatic history retention is also not implemented in the MVP; its proposed strategy is documented in docs/design.md and the runbook. No separate external take-home submission was made.
