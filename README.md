@@ -14,6 +14,9 @@ Prometheus ← /metrics
 
 `python3 run.py` starts one API process and one scheduler. The scheduler polls enabled endpoints, limits unfinished work to its worker count, and prevents overlapping checks of the same endpoint within that process. Results, current state, and actual transitions are saved atomically. Deleting an endpoint also deletes its history and transitions.
 
+PostgreSQL is used because endpoint configuration, current state, check history, and transitions are related records that benefit from foreign keys, indexed time-range queries, and transactions. The checker commits each result, current state, and any state transition atomically, while cascading foreign keys make endpoint deletion consistent. PostgreSQL is also a mature open-source datastore with an official container image that fits the local Docker and Helm stack. The MVP uses one database instance and creates its schema at startup; migrations, high availability, connection pooling, and automated retention are production concerns covered in the design proposal.
+
+
 This is an MVP for a trusted local or cluster network. It has no API authentication, tenant isolation, distributed scheduler, database HA, automatic retention, or schema migration framework. Run **one application instance per database**. The Helm chart enforces one replica and uses `Recreate`, so upgrades include brief downtime. The three-region, 50,000-endpoint design is a **proposal**, described in [docs/design.md](docs/design.md); it is not a capacity claim for this implementation.
 
 ## Prerequisites
@@ -163,6 +166,68 @@ curl -sS -X POST "$BASE_URL/endpoints" \
 ```
 
 A successful registration returns HTTP 201 and the endpoint, including its assigned `id` and initial `current_state: "unknown"`. Duplicate URLs return 409. Replace `123` below with that returned ID; wait for scheduling before expecting history.
+
+Representative JSON responses (IDs and timestamps are illustrative):
+
+```http
+HTTP/1.1 201 Created
+Content-Type: application/json
+
+{
+  "id": 123,
+  "url": "https://example.com",
+  "interval_seconds": 30,
+  "expected_status_code": 200,
+  "enabled": true,
+  "current_state": "unknown",
+  "created_at": "Fri, 30 Oct 2026 06:00:00 GMT"
+}
+```
+
+After a check has run, `GET /endpoints/123/history` returns the newest observations:
+
+```json
+{
+  "endpoint_id": 123,
+  "count": 1,
+  "history": [
+    {
+      "id": 456,
+      "endpoint_id": 123,
+      "checked_at": "Fri, 30 Oct 2026 06:00:30 GMT",
+      "success": true,
+      "actual_status_code": 200,
+      "response_time_ms": 42.7,
+      "error_message": null
+    }
+  ]
+}
+```
+
+`GET /endpoints/123/transitions` records only state changes:
+
+```json
+{
+  "endpoint_id": 123,
+  "count": 1,
+  "transitions": [
+    {
+      "id": 789,
+      "endpoint_id": 123,
+      "from_state": "unknown",
+      "to_state": "healthy",
+      "transitioned_at": "Fri, 30 Oct 2026 06:00:30 GMT"
+    }
+  ]
+}
+```
+
+Errors also return JSON, for example `HTTP 409` for an already registered URL:
+
+```json
+{"error": "This URL is already registered"}
+```
+
 
 ```sh
 curl -sS "$BASE_URL/"
